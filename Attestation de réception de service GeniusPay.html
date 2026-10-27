@@ -73,7 +73,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
 <button id="clr" type="button">Effacer la signature</button>
 <button id="go" class="p" type="button" disabled>Générer le PDF signé</button>
 </div>
-<div id="msg"></div>
+<div id="hint" class="sub" style="margin:8px 0 0"></div><div id="msg"></div><div id="proof"></div>
 </section>
 </main>
 
@@ -125,7 +125,15 @@ pad.addEventListener("pointermove", e => { if (!drawing) return; const p = pos(e
 $("clr").onclick = sizePad;
 window.addEventListener("resize", () => { if (!signed) sizePad(); });
 $("ok").addEventListener("change", refresh);
-function refresh() { $("go").disabled = !(signed && $("ok").checked && val("nom") && val("pre")); }
+function refresh() {
+  const miss = [];
+  if (!val("pre")) miss.push("le prénom");
+  if (!val("nom")) miss.push("le nom");
+  if (!signed) miss.push("la signature");
+  if (!$("ok").checked) miss.push("la case de confirmation");
+  $("go").disabled = miss.length > 0;
+  $("hint").textContent = miss.length ? "Pour activer le bouton, il manque : " + miss.join(", ") + "." : "";
+}
 sizePad();
 
 async function sha256(t) {
@@ -135,6 +143,13 @@ async function sha256(t) {
   } catch (e) { return ""; }
 }
 function setMsg(t, ok) { const m = $("msg"); m.textContent = t; m.className = ok ? "ok" : ""; }
+function showProof(d, stampTxt, hash) {
+  const box = $("proof");
+  box.innerHTML = "<div class=\"doc\" style=\"margin-top:12px\">" + $("doc").innerHTML +
+    "<p><em>Signataire : " + esc(d.sig) + "</em></p><img alt=\"Signature\" src=\"" + pad.toDataURL("image/png") + "\" style=\"max-width:260px;display:block;border-bottom:1px solid #999\">" +
+    "<p style=\"font-size:.8rem;color:#555\">Signé électroniquement le " + esc(stampTxt) + ". Empreinte : " + esc(hash || "indisponible") + "</p></div>";
+  box.scrollIntoView({ behavior: "smooth" });
+}
 
 $("go").onclick = async () => {
   try {
@@ -143,6 +158,7 @@ $("go").onclick = async () => {
     const stamp = new Date();
     const stampTxt = stamp.toLocaleString("fr-FR", { dateStyle: "long", timeStyle: "short" });
     const hash = await sha256(JSON.stringify(d) + stamp.toISOString());
+    if (!window.jspdf) { setMsg("Le module PDF n’a pas pu se charger (connexion ?). Rechargez la page et réessayez.", false); return; }
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({ unit: "mm", format: "a4" });
     const W = 210, M = 20, tw = W - 2 * M;
@@ -167,13 +183,13 @@ $("go").onclick = async () => {
     doc.text(doc.splitTextToSize("Signé électroniquement le " + stampTxt + ". Empreinte du document : " + (hash || "indisponible") + ".", tw), M, y);
     const buf = doc.output("arraybuffer");
     const name = "attestation-" + (val("ref") || "transaction").toLowerCase().replace(/[^a-z0-9]+/g, "-") + "-signee.pdf";
-    const dl = await claude.use("downloads");
-    if (!dl) { setMsg("Le téléchargement n’est pas disponible dans cette vue. Ouvrez la page dans claude.ai pour récupérer le PDF.", false); return; }
+    const dl = (typeof claude !== "undefined") ? await claude.use("downloads") : null;
+    if (!dl) { showProof(d, stampTxt, hash); setMsg("Le téléchargement du PDF n’est pas disponible ici. Une version signée est affichée ci-dessous : faites une capture d’écran et envoyez-la.", false); return; }
     await dl.save({ filename: name, data: buf });
     setMsg("PDF signé enregistré. Vous pouvez l’envoyer par e-mail ou WhatsApp.", true);
   } catch (e) {
     if (e && e.code === "declined") setMsg("Téléchargement annulé. Vous pouvez relancer.", false);
-    else setMsg("Erreur lors de la génération du PDF. Réessayez.", false);
+    else setMsg("Erreur : " + ((e && e.code) ? e.code + " – " : "") + ((e && e.message) || String(e)), false);
   }
 };
 </script>
