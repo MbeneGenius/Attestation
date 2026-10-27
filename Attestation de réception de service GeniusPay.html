@@ -172,7 +172,7 @@ function showProof(d, stampTxt, hash) {
   box.innerHTML = "<div class=\"doc\" style=\"margin-top:12px\">" + $("doc").innerHTML +
     "<p><em>Signataire : " + esc(d.sig) + "</em></p><img alt=\"Signature\" src=\"" + pad.toDataURL("image/png") + "\" style=\"max-width:260px;display:block;border-bottom:1px solid #999\">" +
     "<p style=\"font-size:.8rem;color:#555\">Signé électroniquement le " + esc(stampTxt) + ". Empreinte : " + esc(hash || "indisponible") + "</p></div>";
-  try { box.innerHTML = "<p class=\"sub\" style=\"margin-top:12px\">Appuyez longuement sur l’image (ou clic droit sur ordinateur), puis « Enregistrer l’image » pour la conserver et l’envoyer.</p><img alt=\"Attestation signée\" style=\"width:100%;border:1px solid var(--bd);border-radius:8px;background:#fff\" src=\"" + proofImage(d, stampTxt, hash) + "\">"; } catch (e) {}
+  try { box.innerHTML = "<p class=\"sub\" style=\"margin-top:12px\"></p><img alt=\"Attestation signée\" style=\"width:100%;border:1px solid var(--bd);border-radius:8px;background:#fff\" src=\"" + proofImage(d, stampTxt, hash) + "\">"; } catch (e) {}
   box.scrollIntoView({ behavior: "smooth" });
 }
 
@@ -209,7 +209,7 @@ $("go").onclick = async () => {
     const buf = doc.output("arraybuffer");
     const name = "attestation-" + (val("ref") || "transaction").toLowerCase().replace(/[^a-z0-9]+/g, "-") + "-signee.pdf";
     const dl = (typeof claude !== "undefined") ? await claude.use("downloads") : null;
-    if (!dl) { showProof(d, stampTxt, hash); setMsg("Le téléchargement du PDF n’est pas disponible ici. Une version signée est affichée ci-dessous : faites une capture d’écran et envoyez-la.", false); return; }
+    if (!dl) { showProof(d, stampTxt, hash); setMsg("", false); return; }
     await dl.save({ filename: name, data: buf });
     setMsg("PDF signé enregistré. Vous pouvez l’envoyer par e-mail ou WhatsApp.", true);
   } catch (e) {
